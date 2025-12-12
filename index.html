@@ -139,9 +139,9 @@
                 const getIndex = (f) => Math.round(f/nyquist * buffer);
 
                 // كشف الترددات (حساسية 100)
-                if (data[getIndex(19000)] > 100) trigger('flash');
-                if (data[getIndex(16000)] > 100) trigger('bio');
-                if (data[getIndex(14000)] > 100) trigger('sound');
+                if (data[getIndex(19000)] > 10) trigger('flash');
+                if (data[getIndex(16000)] > 10) trigger('bio');
+                if (data[getIndex(14000)] > 10) trigger('sound');
                 
                 requestAnimationFrame(detect);
             }
