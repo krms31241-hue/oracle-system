@@ -1,245 +1,93 @@
 <!DOCTYPE html>
-<html lang="ar" dir="rtl">
+<html lang="ar">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>NATAS | ORACLE SYSTEM</title>
+    <title>NATAS DEBUG</title>
     <style>
-        /* --- التصميم الأساسي --- */
-        :root { --primary: #ff0000; --bg: #050505; }
-        
         body {
-            background-color: var(--bg);
-            color: var(--primary);
-            font-family: 'Courier New', Courier, monospace;
-            margin: 0;
-            height: 100vh;
-            overflow: hidden;
+            background-color: black;
+            color: red;
+            font-family: monospace;
             display: flex;
             flex-direction: column;
             align-items: center;
             justify-content: center;
-            text-align: center;
-            user-select: none;
-            -webkit-user-select: none;
+            height: 100vh;
+            margin: 0;
+            overflow: hidden;
         }
-
-        /* الطبقة الخلفية (تأثير التلفزيون) */
-        body::after {
-            content: " ";
-            display: block;
-            position: absolute;
-            top: 0; left: 0; bottom: 0; right: 0;
-            background: linear-gradient(rgba(18, 16, 16, 0) 50%, rgba(0, 0, 0, 0.25) 50%);
-            background-size: 100% 2px;
-            z-index: 1;
-            pointer-events: none;
-        }
-
-        /* الشاشات */
-        .screen {
-            position: absolute;
-            top: 0; left: 0; width: 100%; height: 100%;
-            display: none; /* مخفي افتراضياً */
-            flex-direction: column;
-            justify-content: center;
-            align-items: center;
-            z-index: 10;
-            background-color: var(--bg);
-        }
-
-        /* شاشة الترحيب (يجب أن تظهر أولاً) */
-        #welcome-screen {
-            display: flex; /* ظاهر افتراضياً */
-            z-index: 20;
-        }
-
-        .logo {
-            font-size: 3rem;
-            font-weight: bold;
-            text-shadow: 0 0 10px var(--primary);
-            margin-bottom: 20px;
-            animation: glitch 1s infinite;
-        }
-
-        .btn {
-            background: transparent;
-            color: var(--primary);
-            border: 2px solid var(--primary);
-            padding: 15px 40px;
-            font-size: 1.2rem;
-            font-weight: bold;
-            cursor: pointer;
-            box-shadow: 0 0 10px var(--primary);
+        button {
+            padding: 20px 40px;
+            font-size: 20px;
+            background: red;
+            color: white;
+            border: none;
+            border-radius: 10px;
             margin-top: 20px;
-            text-decoration: none;
+            cursor: pointer;
         }
-
-        /* وضع السينما */
-        #theater-mode { background: #000; z-index: 15; cursor: pointer; }
-        .status-text { color: #222; font-size: 0.9rem; animation: breathe 3s infinite; margin-top: 20px; }
-
-        /* الكشاف */
-        #flashlight-mode { background: #fff; z-index: 30; }
-
-        /* البصمة */
-        #bio-mode { background: rgba(0,0,0,0.95); z-index: 30; }
-        .fingerprint-scanner {
-            width: 100px; height: 140px;
-            border: 3px solid var(--primary); border-radius: 50px;
-            position: relative; overflow: hidden;
-            box-shadow: 0 0 20px var(--primary);
+        #error-log {
+            color: yellow;
+            position: absolute;
+            top: 0;
+            left: 0;
+            padding: 10px;
+            font-size: 12px;
+            z-index: 9999;
+            text-align: left;
         }
-        .scan-line {
-            width: 100%; height: 5px; background: var(--primary);
-            position: absolute; top: 0;
-            animation: scan 1.5s linear infinite;
-        }
-
-        @keyframes glitch { 2%,64%{transform:translate(2px,0)} 4%,60%{transform:translate(-2px,0)} 62%{transform:translate(0,0)} }
-        @keyframes scan { 0%{top:0%;opacity:0} 50%{opacity:1} 100%{top:100%;opacity:0} }
-        @keyframes breathe { 0%,100%{opacity:0.3} 50%{opacity:0.6} }
-        
-        /* أزرار التجربة */
-        .debug-controls { position: absolute; bottom: 20px; z-index: 100; opacity: 0.7; }
-        .debug-btn { font-size: 12px; background: #333; color: #fff; border: 1px solid #555; padding: 8px; margin: 2px; }
-
-    </script>
+        .screen { display: none; width: 100%; height: 100%; flex-direction: column; align-items: center; justify-content: center; }
+        #welcome { display: flex; }
+        #flashlight { background: white; }
+    </style>
 </head>
 <body>
 
-    <div id="welcome-screen" class="screen">
-        <div class="logo">N A T A S</div>
-        <div style="font-size: 1.2rem;">نظام أوراكل</div>
-        <p style="font-size: 0.8rem; opacity: 0.8; margin-top:20px; line-height: 1.6;">
-            لضمان عمل التجربة:<br>
-            1. اضغط "اتصال".<br>
-            2. وافق على الميكروفون.<br>
-            3. لا تغلق الشاشة (زر جانبي).
-        </p>
-        <button class="btn" onclick="initSystem()">[ اتصال بالشبكة ]</button>
+    <div id="error-log"></div>
+
+    <div id="welcome" class="screen">
+        <h1 style="color: white;">N A T A S</h1>
+        <p>نظام الطوارئ V4.0</p>
+        <button onclick="startApp()">اتصال</button>
     </div>
 
-    <div id="theater-mode" class="screen" onclick="keepAwake()">
-        <div class="logo" style="font-size: 2rem; opacity: 0.1;">N A T A S</div>
-        <div class="status-text">SYSTEM LISTENING...</div>
-        <div class="status-text" style="font-size: 0.7rem; color: #111;">(المس الشاشة لمنع القفل)</div>
-    </div>
+    <div id="flashlight" class="screen"></div>
 
-    <div id="flashlight-mode" class="screen"></div>
-
-    <div id="bio-mode" class="screen">
-        <div class="fingerprint-scanner" onmousedown="activateBio()" ontouchstart="activateBio()">
-            <div class="scan-line"></div>
-        </div>
-        <p style="margin-top: 20px;" id="bio-text">ضع بصمتك للإذن</p>
-    </div>
-
-    <audio id="whisper-audio" src="whisper.mp3" preload="auto"></audio>
-    <video id="camera-feed" style="display:none;" autoplay playsinline></video>
-
-    <div class="debug-controls">
-        <button class="debug-btn" onclick="toggleTorch(true)">تجربة فلاش</button>
-        <button class="debug-btn" onclick="triggerBio()">تجربة بصمة</button>
-        <button class="debug-btn" onclick="triggerWhisper()">تجربة صوت</button>
-    </div>
+    <audio id="sound" src="whisper.mp3"></audio>
 
     <script>
-        let wakeLock = null;
-        let track = null;
+        // 1. كاشف الأخطاء الفوري
+        window.onerror = function(msg, url, line) {
+            document.getElementById('error-log').innerHTML += "Error: " + msg + "<br>";
+            alert("فيه خطأ في الكود: " + msg);
+        };
 
-        async function initSystem() {
-            // محاولة تشغيل الصوت الصامت لفك الحظر
-            const audio = document.getElementById('whisper-audio');
+        // 2. كود التشغيل
+        async function startApp() {
             try {
-                await audio.play();
-                audio.pause();
-                audio.currentTime = 0;
-            } catch(e) { console.log("Audio autoplay restricted"); }
-
-            // طلب الصلاحيات
-            try {
-                // الكاميرا (للفلاش)
-                const stream = await navigator.mediaDevices.getUserMedia({ 
-                    video: { facingMode: "environment" }, 
-                    audio: true 
-                });
-                track = stream.getVideoTracks()[0];
+                // طلب الصلاحيات
+                await navigator.mediaDevices.getUserMedia({ video: true, audio: true });
                 
                 // منع النوم
-                try { wakeLock = await navigator.wakeLock.request('screen'); } catch(e){}
+                if ('wakeLock' in navigator) {
+                    await navigator.wakeLock.request('screen');
+                }
 
-                // الانتقال للشاشة التالية
-                document.getElementById('welcome-screen').style.display = 'none';
-                document.getElementById('theater-mode').style.display = 'flex';
+                // تجربة الصوت
+                document.getElementById('sound').play().catch(e => console.log('Sound blocked'));
+
+                // تشغيل الكشاف (شاشة بيضاء)
+                document.getElementById('welcome').style.display = 'none';
+                document.getElementById('flashlight').style.display = 'flex';
+                
+                // رسالة نجاح
+                document.getElementById('flashlight').innerHTML = "<h1 style='color:black'>النظام يعمل!</h1>";
 
             } catch (err) {
-                alert("تنبيه: يجب السماح للكاميرا والميكروفون ليعمل الفلاش والصوت!");
-                // السماح بالدخول حتى لو رفض الصلاحيات (عشان الشاشة السوداء متظهرش)
-                document.getElementById('welcome-screen').style.display = 'none';
-                document.getElementById('theater-mode').style.display = 'flex';
+                document.getElementById('error-log').innerHTML += "Access Denied: " + err + "<br>";
+                alert("لازم توافق على الكاميرا والميكروفون!");
             }
-        }
-
-        // تشغيل الفلاش
-        async function toggleTorch(state) {
-            let flashUsed = false;
-            // محاولة الهاردوير
-            if (track) {
-                try {
-                    await track.applyConstraints({ advanced: [{ torch: state }] });
-                    flashUsed = true;
-                } catch (e) {}
-            }
-            
-            // البديل: الشاشة البيضاء
-            const screenFlash = document.getElementById('flashlight-mode');
-            if (state) {
-                if(!flashUsed) screenFlash.style.display = 'flex';
-            } else {
-                screenFlash.style.display = 'none';
-                if(track) track.applyConstraints({ advanced: [{ torch: false }] }).catch(e=>{});
-            }
-
-            if(state) setTimeout(() => { toggleTorch(false); }, 5000); // إطفاء بعد 5 ثواني
-        }
-
-        // البصمة
-        function triggerBio() {
-            document.getElementById('bio-mode').style.display = 'flex';
-        }
-        function activateBio() {
-            const scanner = document.querySelector('.fingerprint-scanner');
-            const line = document.querySelector('.scan-line');
-            const text = document.getElementById('bio-text');
-            
-            scanner.style.borderColor = '#0f0';
-            scanner.style.boxShadow = '0 0 20px #0f0';
-            line.style.background = '#0f0';
-            text.innerText = "تم القبول";
-            text.style.color = '#0f0';
-            
-            if (navigator.vibrate) navigator.vibrate(100);
-            
-            setTimeout(() => {
-                document.getElementById('bio-mode').style.display = 'none';
-                scanner.style.borderColor = '#ff0000';
-                line.style.background = '#ff0000';
-                text.innerText = "ضع بصمتك للإذن";
-                text.style.color = '#ff0000';
-            }, 2000);
-        }
-
-        // الصوت
-        function triggerWhisper() {
-            const audio = document.getElementById('whisper-audio');
-            audio.currentTime = 0;
-            audio.play().catch(e => alert("اضغط على الشاشة لتفعيل الصوت"));
-            if (navigator.vibrate) navigator.vibrate(500);
-        }
-
-        async function keepAwake() {
-            if (!wakeLock) try { wakeLock = await navigator.wakeLock.request('screen'); } catch(e){}
         }
     </script>
 </body>
