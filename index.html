@@ -3,74 +3,127 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>NATAS | ORACLE SYSTEM V3.0</title>
+    <title>NATAS | ORACLE SYSTEM</title>
     <style>
-        /* --- DESIGN SYSTEM --- */
+        /* --- التصميم الأساسي --- */
         :root { --primary: #ff0000; --bg: #050505; }
+        
         body {
-            background-color: var(--bg); color: var(--primary);
+            background-color: var(--bg);
+            color: var(--primary);
             font-family: 'Courier New', Courier, monospace;
-            margin: 0; height: 100vh; overflow: hidden;
-            display: flex; flex-direction: column; align-items: center; justify-content: center;
-            user-select: none; -webkit-user-select: none;
+            margin: 0;
+            height: 100vh;
+            overflow: hidden;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            text-align: center;
+            user-select: none;
+            -webkit-user-select: none;
         }
-        /* تأثير التلفزيون */
+
+        /* الطبقة الخلفية (تأثير التلفزيون) */
         body::after {
-            content: " "; position: absolute; top: 0; left: 0; right: 0; bottom: 0;
-            background: linear-gradient(rgba(18,16,16,0) 50%, rgba(0,0,0,0.25) 50%);
-            background-size: 100% 2px; pointer-events: none; z-index: 2;
+            content: " ";
+            display: block;
+            position: absolute;
+            top: 0; left: 0; bottom: 0; right: 0;
+            background: linear-gradient(rgba(18, 16, 16, 0) 50%, rgba(0, 0, 0, 0.25) 50%);
+            background-size: 100% 2px;
+            z-index: 1;
+            pointer-events: none;
         }
+
+        /* الشاشات */
         .screen {
-            position: absolute; top: 0; left: 0; width: 100%; height: 100%;
-            display: none; flex-direction: column; justify-content: center; align-items: center; z-index: 10;
+            position: absolute;
+            top: 0; left: 0; width: 100%; height: 100%;
+            display: none; /* مخفي افتراضياً */
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            z-index: 10;
+            background-color: var(--bg);
         }
-        /* شاشة الترحيب */
-        #welcome-screen { display: flex; z-index: 20; background: var(--bg); }
-        .logo { font-size: 3rem; text-shadow: 0 0 10px var(--primary); margin-bottom: 20px; animation: glitch 1s infinite; }
+
+        /* شاشة الترحيب (يجب أن تظهر أولاً) */
+        #welcome-screen {
+            display: flex; /* ظاهر افتراضياً */
+            z-index: 20;
+        }
+
+        .logo {
+            font-size: 3rem;
+            font-weight: bold;
+            text-shadow: 0 0 10px var(--primary);
+            margin-bottom: 20px;
+            animation: glitch 1s infinite;
+        }
+
         .btn {
-            background: transparent; color: var(--primary); border: 2px solid var(--primary);
-            padding: 15px 40px; font-size: 1.2rem; cursor: pointer; box-shadow: 0 0 15px var(--primary);
-            font-weight: bold; margin-top: 20px;
+            background: transparent;
+            color: var(--primary);
+            border: 2px solid var(--primary);
+            padding: 15px 40px;
+            font-size: 1.2rem;
+            font-weight: bold;
+            cursor: pointer;
+            box-shadow: 0 0 10px var(--primary);
+            margin-top: 20px;
+            text-decoration: none;
         }
+
         /* وضع السينما */
         #theater-mode { background: #000; z-index: 15; cursor: pointer; }
-        .status-text { color: #111; font-size: 0.8rem; animation: breathe 3s infinite; }
-        /* وضع الكشاف (Fallback للشاشة) */
+        .status-text { color: #222; font-size: 0.9rem; animation: breathe 3s infinite; margin-top: 20px; }
+
+        /* الكشاف */
         #flashlight-mode { background: #fff; z-index: 30; }
-        /* وضع البصمة */
+
+        /* البصمة */
         #bio-mode { background: rgba(0,0,0,0.95); z-index: 30; }
         .fingerprint-scanner {
-            width: 100px; height: 140px; border: 3px solid var(--primary); border-radius: 50px;
-            position: relative; overflow: hidden; box-shadow: 0 0 20px var(--primary);
+            width: 100px; height: 140px;
+            border: 3px solid var(--primary); border-radius: 50px;
+            position: relative; overflow: hidden;
+            box-shadow: 0 0 20px var(--primary);
         }
         .scan-line {
-            width: 100%; height: 5px; background: var(--primary); position: absolute;
-            animation: scan 1.5s linear infinite; box-shadow: 0 0 10px var(--primary);
+            width: 100%; height: 5px; background: var(--primary);
+            position: absolute; top: 0;
+            animation: scan 1.5s linear infinite;
         }
-        
+
         @keyframes glitch { 2%,64%{transform:translate(2px,0)} 4%,60%{transform:translate(-2px,0)} 62%{transform:translate(0,0)} }
         @keyframes scan { 0%{top:0%;opacity:0} 50%{opacity:1} 100%{top:100%;opacity:0} }
-        @keyframes breathe { 0%,100%{opacity:0.2} 50%{opacity:0.5} }
+        @keyframes breathe { 0%,100%{opacity:0.3} 50%{opacity:0.6} }
         
         /* أزرار التجربة */
-        .debug-controls { position: absolute; bottom: 10px; z-index: 100; opacity: 0.5; }
-        .debug-btn { font-size: 10px; background: #333; color: #fff; border: 1px solid #555; margin: 2px; padding: 5px; cursor: pointer; }
+        .debug-controls { position: absolute; bottom: 20px; z-index: 100; opacity: 0.7; }
+        .debug-btn { font-size: 12px; background: #333; color: #fff; border: 1px solid #555; padding: 8px; margin: 2px; }
+
     </script>
 </head>
 <body>
 
     <div id="welcome-screen" class="screen">
         <div class="logo">N A T A S</div>
-        <p>نظام أوراكل V3.0</p>
-        <p style="font-size: 0.8rem; opacity: 0.8; margin-top:10px;">
-            1. اضغط اتصال.<br>2. وافق على الكاميرا والميكروفون.<br>3. لا تقفل الشاشة.
+        <div style="font-size: 1.2rem;">نظام أوراكل</div>
+        <p style="font-size: 0.8rem; opacity: 0.8; margin-top:20px; line-height: 1.6;">
+            لضمان عمل التجربة:<br>
+            1. اضغط "اتصال".<br>
+            2. وافق على الميكروفون.<br>
+            3. لا تغلق الشاشة (زر جانبي).
         </p>
         <button class="btn" onclick="initSystem()">[ اتصال بالشبكة ]</button>
     </div>
 
     <div id="theater-mode" class="screen" onclick="keepAwake()">
-        <div class="logo" style="font-size: 1.5rem; opacity: 0.1;">N A T A S</div>
-        <div class="status-text">LISTENING...</div>
+        <div class="logo" style="font-size: 2rem; opacity: 0.1;">N A T A S</div>
+        <div class="status-text">SYSTEM LISTENING...</div>
+        <div class="status-text" style="font-size: 0.7rem; color: #111;">(المس الشاشة لمنع القفل)</div>
     </div>
 
     <div id="flashlight-mode" class="screen"></div>
@@ -79,116 +132,109 @@
         <div class="fingerprint-scanner" onmousedown="activateBio()" ontouchstart="activateBio()">
             <div class="scan-line"></div>
         </div>
-        <p style="margin-top: 15px;" id="bio-text">بصمة الإذن</p>
+        <p style="margin-top: 20px;" id="bio-text">ضع بصمتك للإذن</p>
     </div>
 
     <audio id="whisper-audio" src="whisper.mp3" preload="auto"></audio>
-    
     <video id="camera-feed" style="display:none;" autoplay playsinline></video>
 
     <div class="debug-controls">
-        <button class="debug-btn" onclick="toggleTorch(true)">TEST FLASH</button>
-        <button class="debug-btn" onclick="triggerBio()">TEST BIO</button>
-        <button class="debug-btn" onclick="triggerWhisper()">TEST SOUND</button>
+        <button class="debug-btn" onclick="toggleTorch(true)">تجربة فلاش</button>
+        <button class="debug-btn" onclick="triggerBio()">تجربة بصمة</button>
+        <button class="debug-btn" onclick="triggerWhisper()">تجربة صوت</button>
     </div>
 
     <script>
         let wakeLock = null;
-        let track = null; // للتحكم في الكاميرا والفلاش
+        let track = null;
 
-        // دالة البدء
         async function initSystem() {
-            // تشغيل الصوت صامت لفك حظر المتصفح
-            document.getElementById('whisper-audio').play().then(() => {
-                document.getElementById('whisper-audio').pause();
-                document.getElementById('whisper-audio').currentTime = 0;
-            }).catch(e => console.log("Audio unlock failed"));
-
-            // طلب صلاحيات الكاميرا (للفلاش) والميكروفون
+            // محاولة تشغيل الصوت الصامت لفك الحظر
+            const audio = document.getElementById('whisper-audio');
             try {
-                // الكاميرا (عشان الفلاش)
+                await audio.play();
+                audio.pause();
+                audio.currentTime = 0;
+            } catch(e) { console.log("Audio autoplay restricted"); }
+
+            // طلب الصلاحيات
+            try {
+                // الكاميرا (للفلاش)
                 const stream = await navigator.mediaDevices.getUserMedia({ 
                     video: { facingMode: "environment" }, 
                     audio: true 
                 });
-                
-                // حفظ مسار الفيديو للتحكم في الفلاش لاحقاً
                 track = stream.getVideoTracks()[0];
                 
-                // تفعيل منع قفل الشاشة
+                // منع النوم
                 try { wakeLock = await navigator.wakeLock.request('screen'); } catch(e){}
 
-                // الانتقال لوضع السينما
+                // الانتقال للشاشة التالية
                 document.getElementById('welcome-screen').style.display = 'none';
                 document.getElementById('theater-mode').style.display = 'flex';
 
             } catch (err) {
-                alert("يجب السماح للكاميرا والميكروفون ليعمل الفلاش والصوت!");
+                alert("تنبيه: يجب السماح للكاميرا والميكروفون ليعمل الفلاش والصوت!");
+                // السماح بالدخول حتى لو رفض الصلاحيات (عشان الشاشة السوداء متظهرش)
+                document.getElementById('welcome-screen').style.display = 'none';
+                document.getElementById('theater-mode').style.display = 'flex';
             }
         }
 
-        // دالة تشغيل الفلاش الحقيقي
+        // تشغيل الفلاش
         async function toggleTorch(state) {
-            // محاولة تشغيل الفلاش الخلفي
+            let flashUsed = false;
+            // محاولة الهاردوير
             if (track) {
                 try {
-                    await track.applyConstraints({
-                        advanced: [{ torch: state }]
-                    });
-                } catch (err) {
-                    console.log("Hardware Flash not supported, using Screen Flash");
-                    // لو فشل (أيفون)، شغل كشاف الشاشة الأبيض
-                    if (state) {
-                        document.getElementById('flashlight-mode').style.display = 'flex';
-                    } else {
-                        document.getElementById('flashlight-mode').style.display = 'none';
-                    }
-                }
+                    await track.applyConstraints({ advanced: [{ torch: state }] });
+                    flashUsed = true;
+                } catch (e) {}
+            }
+            
+            // البديل: الشاشة البيضاء
+            const screenFlash = document.getElementById('flashlight-mode');
+            if (state) {
+                if(!flashUsed) screenFlash.style.display = 'flex';
             } else {
-                // لو مفيش كاميرا أصلاً، شغل الشاشة البيضاء
-                if (state) {
-                    document.getElementById('flashlight-mode').style.display = 'flex';
-                } else {
-                    document.getElementById('flashlight-mode').style.display = 'none';
-                }
+                screenFlash.style.display = 'none';
+                if(track) track.applyConstraints({ advanced: [{ torch: false }] }).catch(e=>{});
             }
 
-            // إطفاء تلقائي بعد 10 ثواني
-            if (state) {
-                setTimeout(() => { toggleTorch(false); }, 10000);
-            }
+            if(state) setTimeout(() => { toggleTorch(false); }, 5000); // إطفاء بعد 5 ثواني
         }
 
-        // دالة البصمة
+        // البصمة
         function triggerBio() {
             document.getElementById('bio-mode').style.display = 'flex';
         }
-
         function activateBio() {
             const scanner = document.querySelector('.fingerprint-scanner');
+            const line = document.querySelector('.scan-line');
+            const text = document.getElementById('bio-text');
+            
             scanner.style.borderColor = '#0f0';
             scanner.style.boxShadow = '0 0 20px #0f0';
-            document.querySelector('.scan-line').style.background = '#0f0';
-            document.getElementById('bio-text').style.color = '#0f0';
-            document.getElementById('bio-text').innerText = "تم القبول";
+            line.style.background = '#0f0';
+            text.innerText = "تم القبول";
+            text.style.color = '#0f0';
             
-            if (navigator.vibrate) navigator.vibrate([100,50,100]);
-
+            if (navigator.vibrate) navigator.vibrate(100);
+            
             setTimeout(() => {
                 document.getElementById('bio-mode').style.display = 'none';
-                // Reset
-                scanner.style.borderColor = 'var(--primary)';
-                document.querySelector('.scan-line').style.background = 'var(--primary)';
-                document.getElementById('bio-text').style.color = 'var(--primary)';
-                document.getElementById('bio-text').innerText = "بصمة الإذن";
-            }, 2500);
+                scanner.style.borderColor = '#ff0000';
+                line.style.background = '#ff0000';
+                text.innerText = "ضع بصمتك للإذن";
+                text.style.color = '#ff0000';
+            }, 2000);
         }
 
-        // دالة الصوت
+        // الصوت
         function triggerWhisper() {
             const audio = document.getElementById('whisper-audio');
             audio.currentTime = 0;
-            audio.play();
+            audio.play().catch(e => alert("اضغط على الشاشة لتفعيل الصوت"));
             if (navigator.vibrate) navigator.vibrate(500);
         }
 
