@@ -1,163 +1,224 @@
-    <script>
-        // المتغيرات العامة
-        let wakeLock = null;
-        let videoTrack = null;
-        let audioContext = null;
-        let analyser = null;
-        let lastTriggerTime = 0; // لمنع التكرار السريع
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>NATAS | SYSTEM V5.0</title>
+    <style>
+        /* --- التصميم السينمائي (Cyberpunk) --- */
+        @import url('https://fonts.googleapis.com/css2?family=Share+Tech+Mono&display=swap');
 
-        const debugLog = document.getElementById('debug-log');
+        :root { --primary: #ff003c; --bg: #000; }
 
-        function log(msg) {
-            console.log(msg);
-            // debugLog.innerHTML = msg + " | " + debugLog.innerHTML; // شيل الشرطتين لو عايز تشوف الأخطاء
+        body {
+            background-color: var(--bg);
+            color: var(--primary);
+            font-family: 'Share Tech Mono', monospace;
+            margin: 0; height: 100vh; overflow: hidden;
+            display: flex; flex-direction: column; align-items: center; justify-content: center;
+            user-select: none; -webkit-user-select: none;
         }
 
-        // 1. التهيئة (عند ضغط زر اتصال)
-        async function initializeSystem() {
-            log("Initializing...");
+        /* تأثير الشاشة */
+        body::before {
+            content: " "; position: absolute; top: 0; left: 0; right: 0; bottom: 0;
+            background: linear-gradient(rgba(18,16,16,0) 50%, rgba(0,0,0,0.25) 50%);
+            background-size: 100% 2px; pointer-events: none; z-index: 2;
+        }
 
-            // فك حظر الصوت
-            const audio = document.getElementById('sfx');
-            try {
-                await audio.play();
-                audio.pause();
-                audio.currentTime = 0;
-            } catch(e) {}
+        .screen {
+            position: absolute; top: 0; left: 0; width: 100%; height: 100%;
+            display: none; flex-direction: column; justify-content: center; align-items: center; z-index: 10;
+        }
+
+        /* شاشة التحميل */
+        #loader { display: flex; z-index: 100; background: #000; text-align: center;}
+        
+        .logo {
+            font-size: 3rem; border: 2px solid var(--primary); padding: 10px 20px;
+            box-shadow: 0 0 15px var(--primary); animation: glitch 2s infinite;
+            text-shadow: 0 0 10px var(--primary);
+        }
+
+        .cyber-btn {
+            margin-top: 30px; background: transparent; color: var(--primary);
+            font-size: 1.5rem; padding: 15px 40px; border: 2px solid var(--primary);
+            cursor: pointer; box-shadow: 0 0 10px var(--primary); font-family: inherit;
+        }
+
+        /* وضع السينما */
+        #theater-ui { background: #000; z-index: 50; }
+        .pulse-text { font-size: 1rem; margin-top: 20px; animation: pulse 2s infinite; opacity: 0.7; }
+
+        /* الكشاف */
+        #flash-ui { background: #fff; z-index: 60; }
+
+        /* البصمة */
+        #bio-ui { background: rgba(0,0,0,0.96); z-index: 60; }
+        .scanner-frame {
+            width: 100px; height: 150px; border: 4px solid var(--primary); border-radius: 50px;
+            position: relative; overflow: hidden; box-shadow: 0 0 30px var(--primary);
+        }
+        .scan-laser {
+            width: 100%; height: 4px; background: #0f0; position: absolute;
+            animation: scan 1.5s infinite; box-shadow: 0 0 15px #0f0;
+        }
+
+        @keyframes glitch { 0%{transform:translate(0)} 20%{transform:translate(-2px,2px)} 40%{transform:translate(-2px,-2px)} 60%{transform:translate(2px,2px)} 100%{transform:translate(0)} }
+        @keyframes pulse { 0%{opacity:0.3} 50%{opacity:1} 100%{opacity:0.3} }
+        @keyframes scan { 0%{top:0%} 50%{top:100%} 100%{top:0%} }
+        
+        /* أزرار التحكم اليدوية للطوارئ (صغيرة جداً أسفل الشاشة) */
+        .manual-controls { position: absolute; bottom: 10px; opacity: 0.2; display: flex; gap: 5px; }
+        .tiny-btn { background: #333; color: #fff; border: 1px solid #555; font-size: 10px; padding: 5px; }
+    </style>
+</head>
+<body>
+
+    <div id="loader" class="screen">
+        <div class="logo">N A T A S</div>
+        <p style="margin-top:20px;">SYSTEM V5.0 // ONLINE</p>
+        <p style="font-size:0.8rem; opacity:0.8;">لا تغلق الشاشة.<br>وافق على الأذونات.</p>
+        <button class="cyber-btn" onclick="initSystem()">[ اتصال ]</button>
+    </div>
+
+    <div id="theater-ui" class="screen" onclick="reRequestWakeLock()">
+        <div class="logo" style="font-size:2rem; opacity:0.2;">NATAS</div>
+        <div class="pulse-text">SYSTEM LISTENING...</div>
+        <div class="manual-controls">
+            <button class="tiny-btn" onclick="triggerEffect('flash')">FLASH</button>
+            <button class="tiny-btn" onclick="triggerEffect('bio')">BIO</button>
+            <button class="tiny-btn" onclick="triggerEffect('sound')">SOUND</button>
+        </div>
+    </div>
+
+    <div id="flash-ui" class="screen"></div>
+
+    <div id="bio-ui" class="screen">
+        <div class="scanner-frame" onmousedown="scanSuccess()" ontouchstart="scanSuccess()">
+            <div class="scan-laser"></div>
+        </div>
+        <p id="bio-msg" style="margin-top:20px;">B I O - S C A N</p>
+    </div>
+
+    <audio id="sfx" src="whisper.mp3" preload="auto"></audio>
+
+    <script>
+        let wakeLock = null;
+        let videoTrack = null;
+        let audioContext, analyser;
+        let lastTrigger = 0;
+
+        async function initSystem() {
+            // تشغيل الصوت الصامت
+            const sfx = document.getElementById('sfx');
+            try { await sfx.play(); sfx.pause(); sfx.currentTime=0; } catch(e){}
 
             try {
-                // إعداد الميكروفون وتحليل الصوت
-                audioContext = new (window.AudioContext || window.webkitAudioContext)();
-                
-                // طلب الصلاحيات
+                // طلب الكاميرا والميكروفون
                 const stream = await navigator.mediaDevices.getUserMedia({ 
-                    video: { facingMode: "environment" }, 
-                    audio: true 
+                    video: { facingMode: "environment" }, audio: true 
                 });
-                
                 videoTrack = stream.getVideoTracks()[0];
-                
-                // ربط المحلل الصوتي
-                const microphone = audioContext.createMediaStreamSource(stream);
+
+                // إعداد المحلل الصوتي
+                audioContext = new (window.AudioContext || window.webkitAudioContext)();
+                const src = audioContext.createMediaStreamSource(stream);
                 analyser = audioContext.createAnalyser();
-                analyser.fftSize = 2048; // دقة عالية
-                microphone.connect(analyser);
+                analyser.fftSize = 2048;
+                src.connect(analyser);
 
                 // بدء الاستماع
-                listenForSignals();
+                listenLoop();
                 
-                // تفعيل منع النوم
-                requestWakeLock();
+                // منع النوم
+                reRequestWakeLock();
 
-                // فتح الواجهة
+                // الانتقال للشاشة التالية
                 document.getElementById('loader').style.display = 'none';
                 document.getElementById('theater-ui').style.display = 'flex';
 
-            } catch (err) {
+            } catch(err) {
                 alert("يجب السماح للكاميرا والميكروفون!");
-                // السماح بالدخول للطوارئ
+                // دخول اضطراري
                 document.getElementById('loader').style.display = 'none';
                 document.getElementById('theater-ui').style.display = 'flex';
             }
         }
 
-        // 2. حلقة الاستماع للترددات (The Listener Loop)
-        function listenForSignals() {
-            const bufferLength = analyser.frequencyBinCount;
-            const dataArray = new Uint8Array(bufferLength);
-
+        function listenLoop() {
+            const buffer = analyser.frequencyBinCount;
+            const data = new Uint8Array(buffer);
+            
             function detect() {
-                analyser.getByteFrequencyData(dataArray);
-
-                // حساب مكان التردد بدقة بناءً على Sample Rate للجهاز
+                analyser.getByteFrequencyData(data);
                 const nyquist = audioContext.sampleRate / 2;
-                const getIndex = (freq) => Math.round(freq / nyquist * bufferLength);
+                const getIndex = (f) => Math.round(f/nyquist * buffer);
 
-                // فحص التردد 19000Hz (للكشاف)
-                const index19k = getIndex(19000);
-                if (dataArray[index19k] > 150) { // الحساسية (150 من 255)
-                    triggerOnce('flash');
-                }
-
-                // فحص التردد 16000Hz (للبصمة)
-                const index16k = getIndex(16000);
-                if (dataArray[index16k] > 150) {
-                    triggerOnce('bio');
-                }
-
+                // كشف تردد 19000 (للكشاف)
+                if (data[getIndex(19000)] > 150) triggerEffect('flash');
+                // كشف تردد 16000 (للبصمة)
+                if (data[getIndex(16000)] > 150) triggerEffect('bio');
+                
                 requestAnimationFrame(detect);
             }
             detect();
         }
 
-        // دالة لمنع التكرار (Debounce)
-        function triggerOnce(type) {
+        function triggerEffect(type) {
             const now = Date.now();
-            if (now - lastTriggerTime < 5000) return; // مهلة 5 ثواني بين كل مرة
-            
-            lastTriggerTime = now;
-            
-            if (type === 'flash') testFlash();
-            if (type === 'bio') testBio();
-        }
+            if (now - lastTrigger < 5000) return; // منع التكرار لمدة 5 ثواني
+            lastTrigger = now;
 
-        // 3. الفلاش
-        async function testFlash() {
-            // تشغيل الشاشة البيضاء فوراً
-            const flashUI = document.getElementById('flash-ui');
-            flashUI.style.display = 'flex';
-
-            // محاولة الهاردوير
-            if (videoTrack) {
-                try { await videoTrack.applyConstraints({ advanced: [{ torch: true }] }); } catch(e){}
+            if (type === 'flash') {
+                const ui = document.getElementById('flash-ui');
+                ui.style.display = 'flex';
+                // محاولة تشغيل الفلاش الحقيقي
+                if(videoTrack) videoTrack.applyConstraints({advanced:[{torch:true}]}).catch(e=>{});
+                
+                setTimeout(() => {
+                    ui.style.display = 'none';
+                    if(videoTrack) videoTrack.applyConstraints({advanced:[{torch:false}]}).catch(e=>{});
+                }, 8000);
+            }
+            
+            if (type === 'bio') {
+                document.getElementById('bio-ui').style.display = 'flex';
             }
 
-            setTimeout(async () => {
-                flashUI.style.display = 'none';
-                if (videoTrack) {
-                    try { await videoTrack.applyConstraints({ advanced: [{ torch: false }] }); } catch(e){}
-                }
-            }, 5000); // مدة الفلاش
+            if (type === 'sound') {
+                const sfx = document.getElementById('sfx');
+                sfx.currentTime = 0; sfx.play();
+                if(navigator.vibrate) navigator.vibrate(500);
+            }
         }
 
-        // 4. البصمة
-        function testBio() {
-            document.getElementById('bio-ui').style.display = 'flex';
-        }
-
-        function scanFinger() {
+        function scanSuccess() {
             const frame = document.querySelector('.scanner-frame');
             const laser = document.querySelector('.scan-laser');
-            const text = document.getElementById('bio-text');
-
-            frame.style.borderColor = '#00ff00';
-            frame.style.boxShadow = '0 0 40px #00ff00';
-            laser.style.background = '#00ff00';
-            text.innerText = "ACCESS GRANTED";
-            text.style.color = '#00ff00';
+            const msg = document.getElementById('bio-msg');
             
-            if (navigator.vibrate) navigator.vibrate(100);
-
+            frame.style.borderColor = '#0f0';
+            frame.style.boxShadow = '0 0 50px #0f0';
+            laser.style.background = '#0f0';
+            msg.innerText = "ACCESS GRANTED";
+            msg.style.color = '#0f0';
+            
+            if(navigator.vibrate) navigator.vibrate(100);
+            
             setTimeout(() => {
                 document.getElementById('bio-ui').style.display = 'none';
                 frame.style.borderColor = 'var(--primary)';
-                frame.style.boxShadow = '0 0 30px var(--primary)';
-                text.innerText = "ضع بصمتك للإذن";
-                text.style.color = 'var(--primary)';
-            }, 2500);
+                msg.innerText = "BIO - SCAN";
+                msg.style.color = 'var(--primary)';
+            }, 2000);
         }
 
-        // 5. الصوت
-        function testSound() {
-            const audio = document.getElementById('sfx');
-            audio.currentTime = 0;
-            audio.play();
-            if (navigator.vibrate) navigator.vibrate(500);
-        }
-
-        async function requestWakeLock() {
-            if ('wakeLock' in navigator && !wakeLock) {
+        async function reRequestWakeLock() {
+            if('wakeLock' in navigator && !wakeLock) {
                 try { wakeLock = await navigator.wakeLock.request('screen'); } catch(e){}
             }
         }
     </script>
+</body>
+</html>
