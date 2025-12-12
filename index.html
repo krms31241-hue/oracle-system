@@ -1,202 +1,113 @@
 <!DOCTYPE html>
-<html lang="ar" dir="rtl">
+<html lang="ar">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>NATAS | FINAL</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>High Gain Trigger</title>
     <style>
-        /* إخفاء كل شيء وتجهيز السواد */
-        body {
-            background-color: #000;
-            color: #ff003c;
-            font-family: monospace;
-            margin: 0; height: 100vh; overflow: hidden;
-            display: flex; flex-direction: column; align-items: center; justify-content: center;
-            user-select: none; -webkit-user-select: none;
+        body { background: #000; color: #fff; font-family: sans-serif; text-align: center; overflow: hidden; }
+        #startBtn { 
+            position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%);
+            padding: 20px 40px; font-size: 24px; background: red; color: white; border: none; border-radius: 10px; cursor: pointer; z-index: 100;
         }
-
-        /* شاشة التحميل (الوحيدة اللي بتظهر في الأول) */
-        #loader {
-            display: flex; flex-direction: column; align-items: center; justify-content: center;
-            width: 100%; height: 100%; background: #000; z-index: 999;
-        }
-
-        .logo {
-            font-size: 3rem; border: 2px solid #ff003c; padding: 10px 20px;
-            box-shadow: 0 0 15px #ff003c; text-shadow: 0 0 10px #ff003c;
-            margin-bottom: 30px;
-        }
-
-        .btn {
-            background: transparent; color: #ff003c; font-size: 1.5rem;
-            padding: 15px 50px; border: 2px solid #ff003c; cursor: pointer;
-            box-shadow: 0 0 10px #ff003c;
-        }
-
-        /* الشاشة السوداء الوهمية (بعد الاتصال) */
-        #black-screen {
-            position: fixed; top: 0; left: 0; width: 100%; height: 100%;
-            background: #000; cursor: none; display: none; z-index: 100;
-        }
-        /* نقطة صغيرة جداً عشان تعرف إن التطبيق شغال (اختياري) */
-        #indicator {
-            position: absolute; bottom: 5px; right: 5px; width: 2px; height: 2px;
-            background: #111; border-radius: 50%; animation: blink 2s infinite;
-        }
-
-        /* الكشاف */
-        #flash-ui {
-            position: fixed; top: 0; left: 0; width: 100%; height: 100%;
-            background: #fff; display: none; z-index: 200;
-        }
-
-        /* البصمة */
-        #bio-ui {
-            position: fixed; top: 0; left: 0; width: 100%; height: 100%;
-            background: rgba(0,0,0,0.95); display: none; flex-direction: column;
-            align-items: center; justify-content: center; z-index: 200;
-        }
-        .scanner {
-            width: 100px; height: 150px; border: 4px solid #ff003c; border-radius: 50px;
-            position: relative; overflow: hidden; box-shadow: 0 0 30px #ff003c;
-        }
-        .laser {
-            width: 100%; height: 4px; background: #0f0; position: absolute;
-            animation: scan 1.5s infinite;
-        }
-
-        @keyframes blink { 0%,100%{opacity:0} 50%{opacity:1} }
-        @keyframes scan { 0%{top:0%} 50%{top:100%} 100%{top:0%} }
+        #debug { position: fixed; bottom: 10px; left: 0; width: 100%; font-size: 14px; color: lime; }
+        .bar-container { width: 80%; height: 30px; background: #333; margin: 20px auto; border: 1px solid #555; position: relative; }
+        .bar-fill { height: 100%; background: lime; width: 0%; transition: width 0.1s; }
+        h1 { margin-top: 50px; }
     </style>
 </head>
 <body>
 
-    <div id="loader">
-        <div class="logo">N A T A S</div>
-        <p style="color:#666; font-size:0.8rem;">V 6.0 // FINAL</p>
-        <button class="btn" onclick="startSystem()">[ اتصال ]</button>
-    </div>
+    <button id="startBtn" onclick="startSystem()">🔥 اضغط للتشغيل بقوة قصوى</button>
+    
+    <h1 id="status">النظام متوقف</h1>
 
-    <div id="black-screen" onclick="reWakeLock()">
-        <div id="indicator"></div>
+    <div class="bar-container">
+        <div id="visualBar" class="bar-fill"></div>
     </div>
+    <p>مؤشر قوة الإشارة (14kHz)</p>
 
-    <div id="flash-ui"></div>
-    <div id="bio-ui">
-        <div class="scanner" onmousedown="bioSuccess()" ontouchstart="bioSuccess()">
-            <div class="laser"></div>
-        </div>
-        <p id="bio-msg" style="margin-top:20px; color:#ff003c;">SCAN...</p>
-    </div>
-
-    <audio id="sfx" src="whisper.mp3" preload="auto"></audio>
+    <div id="debug">انتظار...</div>
 
     <script>
-        let wakeLock = null;
-        let videoTrack = null;
-        let audioContext, analyser;
-        let lastTrigger = 0;
+        let audioContext;
+        let analyser;
+        let dataArray;
+        let gainNode; // سر الخلطة: مضخم الصوت
 
         async function startSystem() {
-            // تشغيل الصوت الصامت لفك الحظر
-            const sfx = document.getElementById('sfx');
-            try { await sfx.play(); sfx.pause(); sfx.currentTime=0; } catch(e){}
-
+            document.getElementById('startBtn').style.display = 'none';
+            document.getElementById('status').innerText = "جاري الاستماع بحساسية 1000%...";
+            
             try {
-                // طلب الصلاحيات
-                const stream = await navigator.mediaDevices.getUserMedia({ 
-                    video: { facingMode: "environment" }, audio: true 
-                });
-                videoTrack = stream.getVideoTracks()[0];
-
-                // إعداد المحلل الصوتي
                 audioContext = new (window.AudioContext || window.webkitAudioContext)();
-                const src = audioContext.createMediaStreamSource(stream);
+                
+                // طلب المايك
+                const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+                const source = audioContext.createMediaStreamSource(stream);
+
+                // 1. إنشاء مضخم للصوت (GainNode)
+                gainNode = audioContext.createGain();
+                gainNode.gain.value = 10.0; // تضخيم الصوت 10 أضعاف!!
+                
+                // 2. المحلل
                 analyser = audioContext.createAnalyser();
                 analyser.fftSize = 2048;
-                src.connect(analyser);
-
-                // بدء الاستماع
-                listenLoop();
-                reWakeLock();
-
-                // إخفاء زر الاتصال وإظهار الشاشة السوداء
-                document.getElementById('loader').style.display = 'none';
-                document.getElementById('black-screen').style.display = 'block';
-
-            } catch(err) {
-                alert("يجب الموافقة على الكاميرا والميكروفون!");
-            }
-        }
-
-        function listenLoop() {
-            const buffer = analyser.frequencyBinCount;
-            const data = new Uint8Array(buffer);
-            
-            function detect() {
-                analyser.getByteFrequencyData(data);
-                const nyquist = audioContext.sampleRate / 2;
-                const getIndex = (f) => Math.round(f/nyquist * buffer);
-
-                // كشف الترددات (حساسية 100)
-                if (data[getIndex(19000)] > 10) trigger('flash');
-                if (data[getIndex(16000)] > 10) trigger('bio');
-                if (data[getIndex(14000)] > 10) trigger('sound');
                 
-                requestAnimationFrame(detect);
-            }
-            detect();
-        }
+                // التوصيل: مايك -> مضخم -> محلل
+                source.connect(gainNode);
+                gainNode.connect(analyser);
 
-        function trigger(type) {
-            const now = Date.now();
-            if (now - lastTrigger < 5000) return; 
-            lastTrigger = now;
+                dataArray = new Uint8Array(analyser.frequencyBinCount);
 
-            if (type === 'flash') {
-                const ui = document.getElementById('flash-ui');
-                ui.style.display = 'block'; // إظهار الشاشة البيضاء
-                // تشغيل الفلاش الحقيقي
-                if(videoTrack) videoTrack.applyConstraints({advanced:[{torch:true}]}).catch(e=>{});
-                
-                setTimeout(() => {
-                    ui.style.display = 'none'; // العودة للسواد
-                    if(videoTrack) videoTrack.applyConstraints({advanced:[{torch:false}]}).catch(e=>{});
-                }, 5000);
-            }
-            
-            if (type === 'bio') {
-                document.getElementById('bio-ui').style.display = 'flex';
-            }
+                detectLoop();
 
-            if (type === 'sound') {
-                const sfx = document.getElementById('sfx');
-                sfx.currentTime = 0; sfx.play();
-                if(navigator.vibrate) navigator.vibrate(500);
+            } catch (e) {
+                alert("المتصفح رافض المايك. تأكد من Settings > Site Settings > Microphone");
+                document.getElementById('status').innerText = "فشل: " + e;
             }
         }
 
-        function bioSuccess() {
-            const frame = document.querySelector('.scanner');
-            const msg = document.getElementById('bio-msg');
-            
-            frame.style.borderColor = '#0f0';
-            frame.style.boxShadow = '0 0 50px #0f0';
-            msg.innerText = "GRANTED";
-            msg.style.color = '#0f0';
-            if(navigator.vibrate) navigator.vibrate(100);
-            
-            setTimeout(() => {
-                document.getElementById('bio-ui').style.display = 'none';
-                frame.style.borderColor = '#ff003c';
-                msg.innerText = "SCAN...";
-                msg.style.color = '#ff003c';
-            }, 2000);
-        }
+        function detectLoop() {
+            requestAnimationFrame(detectLoop);
+            analyser.getByteFrequencyData(dataArray);
 
-        async function reWakeLock() {
-            if('wakeLock' in navigator) {
-                try { wakeLock = await navigator.wakeLock.request('screen'); } catch(e){}
+            let sampleRate = audioContext.sampleRate;
+            
+            // دالة للبحث في "نطاق" وليس رقم واحد
+            function getMaxVolumeInRange(targetFreq) {
+                let centerBin = Math.round(targetFreq * analyser.fftSize / sampleRate);
+                let maxVal = 0;
+                // فحص 5 درجات يمين وشمال عشان لو التردد مرحل
+                for (let i = centerBin - 5; i <= centerBin + 5; i++) {
+                    if (dataArray[i] > maxVal) maxVal = dataArray[i];
+                }
+                return maxVal;
+            }
+
+            // قراءة القيم بعد التضخيم
+            let vol14k = getMaxVolumeInRange(14000);
+            let vol19k = getMaxVolumeInRange(19000);
+
+            // عرض القوة على الشاشة (عشان تصدقني إنه شغال)
+            document.getElementById('visualBar').style.width = (vol14k / 2.55) + "%";
+            document.getElementById('debug').innerText = `14k: ${vol14k} | 19k: ${vol19k}`;
+
+            // شرط التشغيل (بما إننا ضخمنا الصوت، هنعلي الشرط شوية عشان الدقة)
+            // أي رقم فوق 50 يعتبر إشارة قوية الآن
+            if (vol19k > 50) {
+                document.body.style.backgroundColor = "white"; // فلاش
+                document.getElementById('status').innerText = "FLASH !!!";
+                document.getElementById('status').style.color = "black";
+            } 
+            else if (vol14k > 50) {
+                document.body.style.backgroundColor = "yellow"; // صوت
+                document.getElementById('status').innerText = "SOUND DETECTED !!!";
+                document.getElementById('status').style.color = "black";
+            } 
+            else {
+                document.body.style.backgroundColor = "black";
+                document.getElementById('status').style.color = "white";
             }
         }
     </script>
