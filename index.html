@@ -3,104 +3,109 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Force Resume Mic</title>
+    <title>Mic Truth Tester</title>
     <style>
-        body { background: #000; color: #fff; font-family: sans-serif; text-align: center; padding-top: 50px; }
-        button { padding: 20px 40px; font-size: 22px; background: #00E676; color: #000; border: none; border-radius: 8px; font-weight: bold; margin-bottom: 20px; }
-        .stat { font-size: 18px; color: #aaa; margin: 10px 0; }
-        .val { font-size: 30px; font-weight: bold; color: yellow; }
-        #statusBox { padding: 10px; border: 1px solid #333; margin: 20px; background: #111; }
+        body { background: #000; color: #fff; font-family: sans-serif; text-align: center; padding: 20px; }
+        button { padding: 25px; font-size: 22px; background: #FF3D00; color: #fff; border: none; border-radius: 10px; width: 100%; margin-bottom: 30px; }
+        
+        /* شريط الصوت العام */
+        .bar-container { width: 100%; height: 50px; background: #333; border: 2px solid #555; position: relative; margin-bottom: 10px; }
+        .bar-fill { height: 100%; background: lime; width: 0%; transition: width 0.05s; }
+        
+        .label { font-size: 20px; margin-bottom: 5px; text-align: right; }
+        #status { font-size: 18px; color: #aaa; margin-top: 20px; }
     </style>
 </head>
 <body>
 
-    <button onclick="startAndResume()">🚀 تشغيل وإجبار الصوت</button>
+    <button id="btn" onclick="startMic()">🔊 اضغط هنا و "صقّف"</button>
 
-    <div id="statusBox">
-        حالة المحرك: <span id="ctxState" style="color:red">غير معروف</span>
+    <div class="label">هل المايك سامع دوشة؟ (صوت عام)</div>
+    <div class="bar-container">
+        <div id="volBar" class="bar-fill"></div>
     </div>
+    <div id="volVal">0%</div>
 
-    <div class="stat">قوة إشارة 14000Hz</div>
-    <div id="vol14" class="val">0</div>
+    <br><hr><br>
 
-    <div class="stat">قوة إشارة 19000Hz</div>
-    <div id="vol19" class="val">0</div>
+    <div class="label">هل سامع التردد 14000؟</div>
+    <div class="bar-container">
+        <div id="freqBar" class="bar-fill" style="background: yellow;"></div>
+    </div>
+    <div id="freqVal">0</div>
+
+    <p id="status">في الانتظار...</p>
 
     <script>
         let audioContext;
         let analyser;
         let dataArray;
-        let isRunning = false;
 
-        async function startAndResume() {
+        async function startMic() {
+            const btn = document.getElementById('btn');
+            const status = document.getElementById('status');
+
             try {
-                // 1. إنشاء السياق الصوتي
-                if (!audioContext) {
-                    audioContext = new (window.AudioContext || window.webkitAudioContext)();
-                }
-
-                // 2. أهم خطوة: لو كان "معلق" نخليه "شغال"
+                audioContext = new (window.AudioContext || window.webkitAudioContext)();
+                
+                // إجبار فك التعليق
                 if (audioContext.state === 'suspended') {
                     await audioContext.resume();
                 }
 
-                // 3. طلب الميكروفون
                 const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
                 const source = audioContext.createMediaStreamSource(stream);
                 analyser = audioContext.createAnalyser();
-                analyser.fftSize = 1024;
+                analyser.fftSize = 512; // دقة أقل عشان السرعة
                 source.connect(analyser);
                 dataArray = new Uint8Array(analyser.frequencyBinCount);
 
-                // إخفاء الزر وبدء التحليل
-                document.querySelector('button').style.display = 'none';
-                isRunning = true;
-                loop();
+                btn.style.display = 'none';
+                status.innerText = "🎤 الميكروفون نشط.. اعمل دوشة!";
+                status.style.color = "lime";
 
+                loop();
             } catch (e) {
-                alert("خطأ: " + e);
+                alert("مشكلة: " + e);
             }
         }
 
         function loop() {
-            if (!isRunning) return;
             requestAnimationFrame(loop);
             analyser.getByteFrequencyData(dataArray);
 
-            // تحديث حالة المحرك قدام عينك
-            const stateLabel = document.getElementById('ctxState');
-            stateLabel.innerText = audioContext.state; // لازم تكون "running"
-            stateLabel.style.color = (audioContext.state === 'running') ? 'lime' : 'red';
-
-            // قراءة الترددات (مع هامش خطأ بسيط)
-            const sampleRate = audioContext.sampleRate;
-            
-            // دالة تجمع الطاقة حول التردد
-            function getEnergy(freq) {
-                const index = Math.round(freq * analyser.fftSize / sampleRate);
-                // نجمع 3 خانات عشان نضمن التقاط الصوت
-                return (dataArray[index] + dataArray[index-1] + dataArray[index+1]) / 3;
+            // 1. حساب متوسط الصوت العام (هل المايك شغال أصلاً؟)
+            let sum = 0;
+            for(let i = 0; i < dataArray.length; i++) {
+                sum += dataArray[i];
             }
+            let averageVolume = sum / dataArray.length;
 
-            let v14 = getEnergy(14000);
-            let v19 = getEnergy(19000);
+            // تحديث شريط "الدوشة"
+            let volPercent = Math.min(100, averageVolume * 2); // تضخيم للعرض
+            document.getElementById('volBar').style.width = volPercent + "%";
+            document.getElementById('volVal').innerText = Math.floor(volPercent) + "%";
 
-            // عرض الأرقام
-            document.getElementById('vol14').innerText = Math.floor(v14);
-            document.getElementById('vol19').innerText = Math.floor(v19);
+            // 2. حساب تردد 14000Hz بالتحديد
+            const sampleRate = audioContext.sampleRate;
+            const targetIndex = Math.round(14000 * analyser.fftSize / sampleRate);
+            // ناخد 3 خانات حول الهدف
+            let freqVol = (dataArray[targetIndex] + dataArray[targetIndex-1] + dataArray[targetIndex+1]) / 3;
+
+            // تحديث شريط التردد
+            let freqPercent = Math.min(100, freqVol); 
+            document.getElementById('freqBar').style.width = freqPercent + "%";
+            document.getElementById('freqVal').innerText = Math.floor(freqVol);
 
             // التفاعل
-            if (v19 > 10) document.body.style.backgroundColor = "white";
-            else if (v14 > 10) document.body.style.backgroundColor = "yellow";
-            else document.body.style.backgroundColor = "black";
-        }
-
-        // كود إضافي: أي لمسة للشاشة تحاول تشغل الصوت تاني لو فصل
-        document.body.addEventListener('click', function() {
-            if (audioContext && audioContext.state === 'suspended') {
-                audioContext.resume();
+            if (freqVol > 10) {
+                document.body.style.backgroundColor = "yellow"; // لقط التردد
+                status.innerText = "✅ تم التقاط الإشارة!";
+                status.style.color = "black";
+            } else if (volPercent > 10) {
+                document.body.style.backgroundColor = "#222"; // سامع صوت بس مش التردد
             }
-        });
+        }
     </script>
 </body>
 </html>
