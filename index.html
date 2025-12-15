@@ -3,107 +3,111 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Mic Truth Tester</title>
+    <title>High Gain Trigger</title>
     <style>
-        body { background: #000; color: #fff; font-family: sans-serif; text-align: center; padding: 20px; }
-        button { padding: 25px; font-size: 22px; background: #FF3D00; color: #fff; border: none; border-radius: 10px; width: 100%; margin-bottom: 30px; }
-        
-        /* شريط الصوت العام */
-        .bar-container { width: 100%; height: 50px; background: #333; border: 2px solid #555; position: relative; margin-bottom: 10px; }
-        .bar-fill { height: 100%; background: lime; width: 0%; transition: width 0.05s; }
-        
-        .label { font-size: 20px; margin-bottom: 5px; text-align: right; }
-        #status { font-size: 18px; color: #aaa; margin-top: 20px; }
+        body { background: #000; color: #fff; font-family: sans-serif; text-align: center; overflow: hidden; }
+        #startBtn { 
+            position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%);
+            padding: 20px 40px; font-size: 24px; background: red; color: white; border: none; border-radius: 10px; cursor: pointer; z-index: 100;
+        }
+        #debug { position: fixed; bottom: 10px; left: 0; width: 100%; font-size: 14px; color: lime; }
+        .bar-container { width: 80%; height: 30px; background: #333; margin: 20px auto; border: 1px solid #555; position: relative; }
+        .bar-fill { height: 100%; background: lime; width: 0%; transition: width 0.1s; }
+        h1 { margin-top: 50px; }
     </style>
 </head>
 <body>
 
-    <button id="btn" onclick="startMic()">🔊 اضغط هنا و "صقّف"</button>
+    <button id="startBtn" onclick="startSystem()">🔥 اضغط للتشغيل بقوة قصوى</button>
+    
+    <h1 id="status">النظام متوقف</h1>
 
-    <div class="label">هل المايك سامع دوشة؟ (صوت عام)</div>
     <div class="bar-container">
-        <div id="volBar" class="bar-fill"></div>
+        <div id="visualBar" class="bar-fill"></div>
     </div>
-    <div id="volVal">0%</div>
+    <p>مؤشر قوة الإشارة (14kHz)</p>
 
-    <br><hr><br>
-
-    <div class="label">هل سامع التردد 14000؟</div>
-    <div class="bar-container">
-        <div id="freqBar" class="bar-fill" style="background: yellow;"></div>
-    </div>
-    <div id="freqVal">0</div>
-
-    <p id="status">في الانتظار...</p>
+    <div id="debug">انتظار...</div>
 
     <script>
         let audioContext;
         let analyser;
         let dataArray;
+        let gainNode; // سر الخلطة: مضخم الصوت
 
-        async function startMic() {
-            const btn = document.getElementById('btn');
-            const status = document.getElementById('status');
-
+        async function startSystem() {
+            document.getElementById('startBtn').style.display = 'none';
+            document.getElementById('status').innerText = "جاري الاستماع بحساسية 1000%...";
+            
             try {
                 audioContext = new (window.AudioContext || window.webkitAudioContext)();
                 
-                // إجبار فك التعليق
-                if (audioContext.state === 'suspended') {
-                    await audioContext.resume();
-                }
-
+                // طلب المايك
                 const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
                 const source = audioContext.createMediaStreamSource(stream);
+
+                // 1. إنشاء مضخم للصوت (GainNode)
+                gainNode = audioContext.createGain();
+                gainNode.gain.value = 10.0; // تضخيم الصوت 10 أضعاف!!
+                
+                // 2. المحلل
                 analyser = audioContext.createAnalyser();
-                analyser.fftSize = 512; // دقة أقل عشان السرعة
-                source.connect(analyser);
+                analyser.fftSize = 2048;
+                
+                // التوصيل: مايك -> مضخم -> محلل
+                source.connect(gainNode);
+                gainNode.connect(analyser);
+
                 dataArray = new Uint8Array(analyser.frequencyBinCount);
 
-                btn.style.display = 'none';
-                status.innerText = "🎤 الميكروفون نشط.. اعمل دوشة!";
-                status.style.color = "lime";
+                detectLoop();
 
-                loop();
             } catch (e) {
-                alert("مشكلة: " + e);
+                alert("المتصفح رافض المايك. تأكد من Settings > Site Settings > Microphone");
+                document.getElementById('status').innerText = "فشل: " + e;
             }
         }
 
-        function loop() {
-            requestAnimationFrame(loop);
+        function detectLoop() {
+            requestAnimationFrame(detectLoop);
             analyser.getByteFrequencyData(dataArray);
 
-            // 1. حساب متوسط الصوت العام (هل المايك شغال أصلاً؟)
-            let sum = 0;
-            for(let i = 0; i < dataArray.length; i++) {
-                sum += dataArray[i];
+            let sampleRate = audioContext.sampleRate;
+            
+            // دالة للبحث في "نطاق" وليس رقم واحد
+            function getMaxVolumeInRange(targetFreq) {
+                let centerBin = Math.round(targetFreq * analyser.fftSize / sampleRate);
+                let maxVal = 0;
+                // فحص 5 درجات يمين وشمال عشان لو التردد مرحل
+                for (let i = centerBin - 5; i <= centerBin + 5; i++) {
+                    if (dataArray[i] > maxVal) maxVal = dataArray[i];
+                }
+                return maxVal;
             }
-            let averageVolume = sum / dataArray.length;
 
-            // تحديث شريط "الدوشة"
-            let volPercent = Math.min(100, averageVolume * 2); // تضخيم للعرض
-            document.getElementById('volBar').style.width = volPercent + "%";
-            document.getElementById('volVal').innerText = Math.floor(volPercent) + "%";
+            // قراءة القيم بعد التضخيم
+            let vol14k = getMaxVolumeInRange(14000);
+            let vol19k = getMaxVolumeInRange(19000);
 
-            // 2. حساب تردد 14000Hz بالتحديد
-            const sampleRate = audioContext.sampleRate;
-            const targetIndex = Math.round(14000 * analyser.fftSize / sampleRate);
-            // ناخد 3 خانات حول الهدف
-            let freqVol = (dataArray[targetIndex] + dataArray[targetIndex-1] + dataArray[targetIndex+1]) / 3;
+            // عرض القوة على الشاشة (عشان تصدقني إنه شغال)
+            document.getElementById('visualBar').style.width = (vol14k / 2.55) + "%";
+            document.getElementById('debug').innerText = `14k: ${vol14k} | 19k: ${vol19k}`;
 
-            // تحديث شريط التردد
-            let freqPercent = Math.min(100, freqVol); 
-            document.getElementById('freqBar').style.width = freqPercent + "%";
-            document.getElementById('freqVal').innerText = Math.floor(freqVol);
-
-            // التفاعل
-            if (freqVol > 10) {
-                document.body.style.backgroundColor = "yellow"; // لقط التردد
-                status.innerText = "✅ تم التقاط الإشارة!";
-                status.style.color = "black";
-            } else if (volPercent > 10) {
-                document.body.style.backgroundColor = "#222"; // سامع صوت بس مش التردد
+            // شرط التشغيل (بما إننا ضخمنا الصوت، هنعلي الشرط شوية عشان الدقة)
+            // أي رقم فوق 50 يعتبر إشارة قوية الآن
+            if (vol19k > 50) {
+                document.body.style.backgroundColor = "white"; // فلاش
+                document.getElementById('status').innerText = "FLASH !!!";
+                document.getElementById('status').style.color = "black";
+            } 
+            else if (vol14k > 50) {
+                document.body.style.backgroundColor = "yellow"; // صوت
+                document.getElementById('status').innerText = "SOUND DETECTED !!!";
+                document.getElementById('status').style.color = "black";
+            } 
+            else {
+                document.body.style.backgroundColor = "black";
+                document.getElementById('status').style.color = "white";
             }
         }
     </script>
